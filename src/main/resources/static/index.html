@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GlobalBank ATM — Next-Gen Banking Simulator & REST API</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <header class="top-nav">
+        <div class="brand">
+            <div class="bank-logo-icon">🏦</div>
+            <div>
+                <div class="brand-title">GLOBALBANK <span class="tag">REST API v1.0</span></div>
+                <div class="brand-sub">Next-Gen ATM Simulation & Banking Portal</div>
+            </div>
+        </div>
+        <div class="nav-links">
+            <a href="/swagger-ui.html" target="_blank" class="nav-btn swagger-btn" id="btn-swagger">
+                <span>⚡ Swagger UI</span>
+            </a>
+            <a href="/v3/api-docs" target="_blank" class="nav-btn api-docs-btn" id="btn-api-docs">
+                <span>📄 OpenAPI Spec</span>
+            </a>
+            <a href="/h2-console" target="_blank" class="nav-btn h2-btn" id="btn-h2">
+                <span>🗄 H2 Console</span>
+            </a>
+            <button class="nav-btn theme-btn" id="btn-admin-modal">
+                <span>⚙ Admin Panel</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <!-- Left Column: Demo Cards & Quick Actions -->
+        <aside class="sidebar">
+            <div class="card-picker-panel glass-panel">
+                <div class="panel-header">
+                    <h3>💳 Select Demo Card</h3>
+                    <span class="badge">Click to Insert</span>
+                </div>
+                <p class="panel-sub">Pre-loaded demo cards with live database balances and PIN hints.</p>
+                <div id="demo-cards-container" class="demo-cards-list">
+                    <div class="loading-cards">Loading demo accounts...</div>
+                </div>
+            </div>
+
+            <!-- API Status & Diagnostics -->
+            <div class="diagnostics-panel glass-panel">
+                <div class="panel-header">
+                    <h3>📊 System Metrics</h3>
+                    <span class="live-dot-container"><span class="live-dot"></span> LIVE</span>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-item">
+                        <span class="m-label">API Status</span>
+                        <span class="m-val text-success" id="m-api-status">ONLINE 200 OK</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="m-label">Database</span>
+                        <span class="m-val text-primary" id="m-db-status">In-Memory H2 / JPA</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="m-label">Security</span>
+                        <span class="m-val text-warning">JWT + Lockout (3x)</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="m-label">Daily Limit</span>
+                        <span class="m-val text-info">$2,000.00 / day</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Center Column: ATM Hardware Simulator -->
+        <section class="atm-section">
+            <div class="atm-kiosk-wrapper">
+                <div class="atm-brand-banner">
+                    <div class="atm-logo-row">
+                        <span class="logo-crest">🏛️</span>
+                        <span>GLOBALBANK ATM NETWORK</span>
+                    </div>
+                    <div class="kiosk-badge">TERMINAL #GB-ATM-409</div>
+                </div>
+
+                <!-- ATM Display Screen -->
+                <div class="atm-screen glass-screen" id="atm-screen">
+                    <!-- SCREEN 1: Welcome & Login -->
+                    <div id="screen-login" class="screen-view active">
+                        <div class="screen-welcome-header">
+                            <div class="glow-orb"></div>
+                            <h2>WELCOME TO GLOBALBANK</h2>
+                            <p>Please insert your card or select a demo account on the left</p>
+                        </div>
+
+                        <form id="form-login" class="screen-form">
+                            <div class="input-group">
+                                <label for="input-card">16-Digit Card Number</label>
+                                <div class="input-icon-wrapper">
+                                    <span class="input-icon">💳</span>
+                                    <input type="text" id="input-card" maxlength="16" placeholder="4001 2345 6789 0004" required autocomplete="off">
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="input-pin">4-Digit Security PIN</label>
+                                <div class="input-icon-wrapper">
+                                    <span class="input-icon">🔒</span>
+                                    <input type="password" id="input-pin" maxlength="4" placeholder="••••" required autocomplete="off">
+                                </div>
+                            </div>
+
+                            <div class="login-actions">
+                                <button type="submit" class="btn btn-emerald btn-glow" id="btn-login-submit">
+                                    <span>Authenticate & Enter ▶</span>
+                                </button>
+                            </div>
+                        </form>
+
+                        <div id="login-alert" class="alert-box" style="display: none;"></div>
+                    </div>
+
+                    <!-- SCREEN 2: Dashboard Menu -->
+                    <div id="screen-dashboard" class="screen-view">
+                        <div class="account-summary-bar">
+                            <div class="acc-user-info">
+                                <div class="user-greeting">Welcome, <span id="dash-user-name">Customer</span></div>
+                                <div class="user-card-masked" id="dash-card-masked">**** **** **** 0004</div>
+                            </div>
+                            <div class="acc-balance-badge">
+                                <span class="balance-label">Available Balance</span>
+                                <span class="balance-amount" id="dash-balance">$0.00</span>
+                                <span class="acc-type-pill" id="dash-acc-type">SAVINGS</span>
+                            </div>
+                        </div>
+
+                        <div class="menu-grid">
+                            <button class="menu-btn" data-action="balance" id="m-btn-balance">
+                                <span class="menu-icon">💰</span>
+                                <div class="menu-text">
+                                    <strong>Balance Enquiry</strong>
+                                    <small>Account summary & limits</small>
+                                </div>
+                            </button>
+
+                            <button class="menu-btn" data-action="withdraw" id="m-btn-withdraw">
+                                <span class="menu-icon">💸</span>
+                                <div class="menu-text">
+                                    <strong>Cash Withdrawal</strong>
+                                    <small>Multiples of $10</small>
+                                </div>
+                            </button>
+
+                            <button class="menu-btn" data-action="deposit" id="m-btn-deposit">
+                                <span class="menu-icon">📥</span>
+                                <div class="menu-text">
+                                    <strong>Cash Deposit</strong>
+                                    <small>Instant credit to account</small>
+                                </div>
+                            </button>
+
+                            <button class="menu-btn" data-action="transfer" id="m-btn-transfer">
+                                <span class="menu-icon">🔄</span>
+                                <div class="menu-text">
+                                    <strong>Fund Transfer</strong>
+                                    <small>Inter-account atomic transfer</small>
+                                </div>
+                            </button>
+
+                            <button class="menu-btn" data-action="statement" id="m-btn-statement">
+                                <span class="menu-icon">📄</span>
+                                <div class="menu-text">
+                                    <strong>Mini Statement</strong>
+                                    <small>Recent transactions & export</small>
+                                </div>
+                            </button>
+
+                            <button class="menu-btn" data-action="pinchange" id="m-btn-pinchange">
+                                <span class="menu-icon">🔑</span>
+                                <div class="menu-text">
+                                    <strong>Change PIN</strong>
+                                    <small>Update 4-digit code</small>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div class="screen-footer-actions">
+                            <button class="btn btn-secondary" id="btn-logout">
+                                <span>⏏ Eject Card & Logout</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- SCREEN 3: Withdrawal -->
+                    <div id="screen-withdraw" class="screen-view">
+                        <div class="screen-header-row">
+                            <h3>💸 Cash Withdrawal</h3>
+                            <button class="btn-back" data-back="dashboard">◀ Back</button>
+                        </div>
+                        <p class="screen-desc">Select a preset amount or enter a custom amount (multiples of $10, max $2,000/day).</p>
+
+                        <div class="preset-chips">
+                            <button class="preset-btn" data-val="20">$20</button>
+                            <button class="preset-btn" data-val="40">$40</button>
+                            <button class="preset-btn" data-val="60">$60</button>
+                            <button class="preset-btn" data-val="100">$100</button>
+                            <button class="preset-btn" data-val="200">$200</button>
+                            <button class="preset-btn" data-val="500">$500</button>
+                        </div>
+
+                        <form id="form-withdraw" class="screen-form">
+                            <div class="input-group">
+                                <label for="input-withdraw-amount">Custom Amount ($)</label>
+                                <input type="number" id="input-withdraw-amount" step="10" min="10" placeholder="e.g. 150" required>
+                            </div>
+                            <button type="submit" class="btn btn-emerald" id="btn-withdraw-submit">Confirm Withdrawal</button>
+                        </form>
+                        <div id="withdraw-alert" class="alert-box" style="display: none;"></div>
+                    </div>
+
+                    <!-- SCREEN 4: Deposit -->
+                    <div id="screen-deposit" class="screen-view">
+                        <div class="screen-header-row">
+                            <h3>📥 Cash Deposit</h3>
+                            <button class="btn-back" data-back="dashboard">◀ Back</button>
+                        </div>
+                        <p class="screen-desc">Insert cash or enter amount to deposit (maximum $50,000 per deposit).</p>
+
+                        <div class="preset-chips">
+                            <button class="preset-btn-dep" data-val="100">+$100</button>
+                            <button class="preset-btn-dep" data-val="500">+$500</button>
+                            <button class="preset-btn-dep" data-val="1000">+$1,000</button>
+                            <button class="preset-btn-dep" data-val="5000">+$5,000</button>
+                        </div>
+
+                        <form id="form-deposit" class="screen-form">
+                            <div class="input-group">
+                                <label for="input-deposit-amount">Deposit Amount ($)</label>
+                                <input type="number" id="input-deposit-amount" step="0.01" min="1" placeholder="e.g. 500.00" required>
+                            </div>
+                            <button type="submit" class="btn btn-emerald" id="btn-deposit-submit">Confirm Deposit</button>
+                        </form>
+                        <div id="deposit-alert" class="alert-box" style="display: none;"></div>
+                    </div>
+
+                    <!-- SCREEN 5: Fund Transfer -->
+                    <div id="screen-transfer" class="screen-view">
+                        <div class="screen-header-row">
+                            <h3>🔄 Inter-Account Fund Transfer</h3>
+                            <button class="btn-back" data-back="dashboard">◀ Back</button>
+                        </div>
+                        <p class="screen-desc">Transfer funds securely between GlobalBank accounts with real-time verification.</p>
+
+                        <form id="form-transfer" class="screen-form">
+                            <div class="input-group">
+                                <label for="input-transfer-target">Recipient Card No. or Account No.</label>
+                                <div class="verify-input-row">
+                                    <input type="text" id="input-transfer-target" placeholder="e.g. GB100000001 or 4001234567890001" required>
+                                    <button type="button" class="btn btn-outline" id="btn-verify-target">Verify</button>
+                                </div>
+                                <div id="recipient-verified-box" class="recipient-box" style="display: none;"></div>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="input-transfer-amount">Amount to Transfer ($)</label>
+                                <input type="number" id="input-transfer-amount" step="0.01" min="1" placeholder="e.g. 250.00" required>
+                            </div>
+
+                            <button type="submit" class="btn btn-emerald" id="btn-transfer-submit">Confirm Transfer</button>
+                        </form>
+                        <div id="transfer-alert" class="alert-box" style="display: none;"></div>
+                    </div>
+
+                    <!-- SCREEN 6: Mini Statement & History -->
+                    <div id="screen-statement" class="screen-view">
+                        <div class="screen-header-row">
+                            <h3>📄 Account Statement</h3>
+                            <div class="header-action-group">
+                                <button class="btn btn-sm btn-outline" id="btn-export-csv">⬇ Export CSV</button>
+                                <button class="btn-back" data-back="dashboard">◀ Back</button>
+                            </div>
+                        </div>
+
+                        <div class="statement-table-wrapper">
+                            <table class="statement-table" id="statement-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date & Time</th>
+                                        <th>Type</th>
+                                        <th>Reference</th>
+                                        <th>Description</th>
+                                        <th>Amount</th>
+                                        <th>Balance</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="statement-tbody">
+                                    <tr><td colspan="6" class="text-center">Loading statement...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- SCREEN 7: Change PIN -->
+                    <div id="screen-pinchange" class="screen-view">
+                        <div class="screen-header-row">
+                            <h3>🔑 Change ATM Security PIN</h3>
+                            <button class="btn-back" data-back="dashboard">◀ Back</button>
+                        </div>
+                        <form id="form-pinchange" class="screen-form">
+                            <div class="input-group">
+                                <label for="input-old-pin">Current 4-Digit PIN</label>
+                                <input type="password" id="input-old-pin" maxlength="4" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="input-new-pin">New 4-Digit PIN</label>
+                                <input type="password" id="input-new-pin" maxlength="4" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="input-confirm-pin">Confirm New PIN</label>
+                                <input type="password" id="input-confirm-pin" maxlength="4" required>
+                            </div>
+                            <button type="submit" class="btn btn-emerald" id="btn-pinchange-submit">Update PIN</button>
+                        </form>
+                        <div id="pinchange-alert" class="alert-box" style="display: none;"></div>
+                    </div>
+                </div>
+
+                <!-- ATM Physical Controls Simulation: Keypad & Card Slot -->
+                <div class="atm-hardware-panel">
+                    <div class="keypad-side">
+                        <div class="keypad-label">SECURE ENCRYPTED NUMPAD</div>
+                        <div class="keypad-grid" id="virtual-numpad">
+                            <button class="num-key" data-key="1">1</button>
+                            <button class="num-key" data-key="2">2</button>
+                            <button class="num-key" data-key="3">3</button>
+                            <button class="num-key action-cancel" data-key="cancel">CANCEL</button>
+
+                            <button class="num-key" data-key="4">4</button>
+                            <button class="num-key" data-key="5">5</button>
+                            <button class="num-key" data-key="6">6</button>
+                            <button class="num-key action-clear" data-key="clear">CLEAR</button>
+
+                            <button class="num-key" data-key="7">7</button>
+                            <button class="num-key" data-key="8">8</button>
+                            <button class="num-key" data-key="9">9</button>
+                            <button class="num-key action-enter" data-key="enter">ENTER</button>
+
+                            <button class="num-key" data-key=".">.</button>
+                            <button class="num-key" data-key="0">0</button>
+                            <button class="num-key" data-key="00">00</button>
+                            <button class="num-key" data-key="backspace">⌫</button>
+                        </div>
+                    </div>
+
+                    <div class="slots-side">
+                        <div class="slot-item">
+                            <div class="slot-label">💳 CARD INSERTION SLOT</div>
+                            <div class="card-slot glowing-slot" id="visual-card-slot">
+                                <span class="slot-light"></span>
+                            </div>
+                        </div>
+
+                        <div class="slot-item">
+                            <div class="slot-label">💵 CASH DISPENSER</div>
+                            <div class="cash-slot" id="visual-cash-slot">
+                                <span class="cash-light"></span>
+                            </div>
+                        </div>
+
+                        <div class="slot-item">
+                            <div class="slot-label">🧾 RECEIPT PRINTER</div>
+                            <div class="receipt-slot" id="visual-receipt-slot"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Virtual Printed Receipt & Live Log -->
+        <aside class="right-col">
+            <div class="receipt-container glass-panel">
+                <div class="panel-header">
+                    <h3>🧾 Printed Receipt</h3>
+                    <button class="btn btn-xs btn-outline" id="btn-clear-receipt">Clear</button>
+                </div>
+                <div class="receipt-paper" id="receipt-paper">
+                    <div class="receipt-header">
+                        <div class="receipt-bank-name">GLOBALBANK ATM</div>
+                        <div class="receipt-subtitle">TRANSACTION RECORD</div>
+                        <div class="receipt-dash">--------------------------------</div>
+                    </div>
+                    <div class="receipt-body" id="receipt-content">
+                        <div class="receipt-empty-state">No transaction performed yet.<br>Your printed receipt will appear here.</div>
+                    </div>
+                    <div class="receipt-footer">
+                        <div class="receipt-dash">--------------------------------</div>
+                        <div class="receipt-thankyou">THANK YOU FOR BANKING WITH US</div>
+                        <div class="receipt-hotline">24/7 SUPPORT: 1-800-GB-ATM</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live REST API Request/Response Log -->
+            <div class="api-log-container glass-panel">
+                <div class="panel-header">
+                    <h3>⚡ Live HTTP Inspector</h3>
+                    <button class="btn btn-xs btn-outline" id="btn-clear-log">Clear</button>
+                </div>
+                <div class="api-log-list" id="api-log-list">
+                    <div class="log-item info">
+                        <span class="log-method">INIT</span>
+                        <span class="log-url">Client ready. Connects to /api/v1/*</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Admin Panel Modal -->
+    <div class="modal-overlay" id="admin-modal" style="display: none;">
+        <div class="modal-card glass-panel">
+            <div class="modal-header">
+                <h3>⚙ Bank Administration & Card Management</h3>
+                <button class="modal-close" id="btn-close-admin">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="admin-unlock-section">
+                    <h4>🔓 Unlock Locked Card</h4>
+                    <p>If a customer entered 3 wrong PIN attempts, their card is locked. Enter the 16-digit card number below to unlock.</p>
+                    <div class="input-row">
+                        <input type="text" id="admin-unlock-card" placeholder="e.g. 4001234567890004">
+                        <button class="btn btn-emerald" id="btn-admin-unlock-submit">Unlock Card</button>
+                    </div>
+                    <div id="admin-unlock-alert" class="alert-box" style="display: none;"></div>
+                </div>
+
+                <div class="admin-stats-section">
+                    <h4>📊 Vault & Session Overview</h4>
+                    <div id="admin-stats-content">Loading metrics...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
